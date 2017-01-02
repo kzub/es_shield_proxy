@@ -1,2 +1,8 @@
 # es_shield_proxy
-Kibana doesn't provide us with free tool to control user permissions with elasticsearch requests. This tool is attempt to close this gap.
+This Proxy could limit user requests and check if they meet some limits.
+
+Currently supported limits:
+* Search time range (from - to)
+* Terms size and term fields blacklist
+* Max parallel search requests
+* Search requests per second

@@ -1,0 +1,30 @@
+{
+  "name": "ws-shield-proxy",
+  "version": "1.0.0",
+  "description": "Elasticsearch user permission control",
+  "main": "app.js",
+  "scripts": {
+    "test": ""
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kzub/es_shield_proxy"
+  },
+  "keywords": [
+    "kibana",
+    "elasticsearch",
+    "permissions"
+  ],
+  "author": "Zubkov Konstantin",
+  "license": "MIT",
+  "copyright": "OneTwoTrip",
+  "dependencies": {
+    "express": "3.*",
+    "express-http-proxy": "0.10.1"
+  },
+  "devDependencies": {
+  },
+  "bugs": {
+    "url": "https://github.com/kzub/es_shield_proxy/issues"
+  }
+}
