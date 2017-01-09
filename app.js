@@ -33,7 +33,7 @@ function proxyRequest(request, response) {
     if (buf_size - buf_used < chunk.length) {
       buf_size *= 2;
       var new_buf = new Buffer(buf_size);
-      buf.copy(new_buf, 0, buf_used);
+      buf.copy(new_buf, 0, 0, buf_used);
       buf = new_buf;
       doitagain(chunk);
       return;
