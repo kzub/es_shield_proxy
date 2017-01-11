@@ -66,7 +66,7 @@ function proxyRequest(request, response) {
         request: request.url,
         request_body: body,
         request_size: body.length || undefined,
-        controlled: access.controlled
+        controlled: true
       };
       response.status(403).send(result);
       log.z(result);
