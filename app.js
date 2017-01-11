@@ -48,15 +48,25 @@ function proxyRequest(request, response) {
     var access = checkUserPermissions(request, body);
 
     if (access.granted) {
-      processUserRequest(request, response, buf, body, access.delayProcessing);
+      log.z({
+        event: 'RQ_BEGIN',
+        request: request.url,
+        request_delay: access.delay,
+        request_size: body.length || undefined,
+        request_body: body,
+        controlled: access.controlled
+      });
+
+      processUserRequest(request, response, buf, body, access);
     } else {
-      var result = { 
+      var result = {
         event: 'RQ_DECLINED',
         error: true,
         reason: access.reason,
         request: request.url,
         request_body: body,
-        request_size: body.length || undefined
+        request_size: body.length || undefined,
+        controlled: access.controlled
       };
       response.status(403).send(result);
       log.z(result);
@@ -64,19 +74,20 @@ function proxyRequest(request, response) {
   });
 }
 
-function processUserRequest(request, response, buf, body, delay, wasDelayed) {
+function processUserRequest(request, response, buf, body, access, skipTimeThrottling) {
   var log = logger.auth(request.headers.ottuser);
 
-  if (isFinite(delay) && delay > 0) {
+  if (isFinite(access.delay) && access.delay > 0 && skipTimeThrottling === undefined) {
     setTimeout(function() {
-      processUserRequest(request, response, buf, body, undefined, delay);
-    }, delay);
+      processUserRequest(request, response, buf, body, access, true);
+    }, access.delay);
     log.z({
       event: 'RQ_DELAY',
       request: request.url,
-      request_delay: delay,
+      request_delay: access.delay,
       request_size: body.length || undefined,
-      request_body: body
+      request_body: body,
+      controlled: access.controlled
     });
     return;
   }
@@ -99,9 +110,10 @@ function processUserRequest(request, response, buf, body, delay, wasDelayed) {
         reason: err.code,
         response_time: Date.now() - startTime,
         request: request.url,
-        request_delay: wasDelayed,
+        request_delay: access.delay,
         request_size: body.length || undefined,
-        request_body: body
+        request_body: body,
+        controlled: access.controlled
     };
     response.status(500).send(result);
     log.z(result);
@@ -119,11 +131,12 @@ function processUserRequest(request, response, buf, body, delay, wasDelayed) {
       log.z({
         event: 'RQ_END',
         request: request.url,
-        request_delay: wasDelayed,
+        request_delay: access.delay,
         request_size: body.length || undefined,
         response_time: Date.now() - startTime,
         response_size: responseLength,
-        request_body: body
+        request_body: body,
+        controlled: access.controlled
       });
       response.end();
     });
@@ -132,9 +145,20 @@ function processUserRequest(request, response, buf, body, delay, wasDelayed) {
   proxyReq.end(buf, 'binary');
 }
 
+function isSimpleQuery(buf) {
+  // search for dashboard by name
+  if (buf && (buf.indexOf('{\"query\":{\"query_string\":{\"query\":\"title:') === 0)) {
+    return true;
+  }
+}
+
 function checkUserPermissions(request, buf) {
   if (request.url.indexOf('search') === -1) {
-    return makePermisionResponse(true);
+    return makePermisionResponse(true, 'no control needed');
+  }
+
+  if (isSimpleQuery(buf)) {
+    return makePermisionResponse(true, 'no control needed');
   }
 
   var username = request.headers.ottuser;
@@ -158,11 +182,11 @@ function checkUserPermissions(request, buf) {
   }
 
   if (facetsCount && searchRange) {
-    var facetsRangeFactor = (searchMaxRange/searchRange).toFixed(2);
+    var facetsRangeFactor = 1.5*(searchMaxRange/searchRange).toFixed(2);
     if (facetsCount > facetsRangeFactor) {
-      return makePermisionResponse(false, 'facets count/search factor exceed maximum: ' + 
-                                  [facetsCount, facetsRangeFactor, 
-                                  searchMaxRange, searchRange].join(':')); 
+      return makePermisionResponse(false, 'facets count/search factor exceed maximum: ' +
+                                  [facetsCount, facetsRangeFactor,
+                                  searchMaxRange, searchRange].join(':'));
    }
   }
 
@@ -171,8 +195,15 @@ function checkUserPermissions(request, buf) {
     return makePermisionResponse(false, badTerms);
   }
 
-  var delay = getUserDelay(username, searchRange, facetsCount); 
-  return makePermisionResponse(true, 'OK', { delayProcessing: delay });
+  var delay = getUserDelay(username, searchRange, facetsCount);
+  if (delay && delay < 0) {
+    return makePermisionResponse(false, 'too much requests, wait ' + config.limits.searchMaxDelay/1000 + ' seconds before retry');
+  }
+
+  return makePermisionResponse(true, 'OK', {
+    delay: delay,
+    controlled: true
+  });
 }
 
 function isTermsBad(data) {
@@ -291,21 +322,25 @@ function makePermisionResponse(granted, reason, properties) {
 function getUserDelay(username, searchRange, facetsCount) {
   var timeframe = 1000/searchMaxRPS; // requests per second
   if (isFinite(searchRange)){
-    var kSearch = (0.5 + searchRange/(60*60*24)); // search difficulty multiplier
-    if (kSearch > 11) { kSearch = 11; }
-    if (kSearch > 1) { timeframe *= kSearch; }    
+    var kSearch = 0.5 + searchRange/(60*60*24); // search difficulty multiplier
+    if (kSearch > 5) { kSearch = 5; }
+    if (kSearch > 1) { timeframe *= kSearch; }
   }
   if (isFinite(facetsCount)) {
-    var kFacets = (0.75 + facetsCount/4); // queries per search request multiplier
-    if (kFacets > 11) { kFacets = 11; }
-    if (kFacets > 1) { timeframe *= kFacets; }    
+    var kFacets = 0.75 + facetsCount/4; // queries per search request multiplier
+    if (kFacets > 5) { kFacets = 5; }
+    if (kFacets > 1) { timeframe *= kFacets; }
   }
 
+  // log.w("DELAY!!!!!!!!!!", kSearch, kFacets, timeframe);
   if (!userServiceWindow[username] || userServiceWindow[username] < Date.now()) {
     userServiceWindow[username] = Date.now() + timeframe;
     return;
   }
 
+  if (userServiceWindow[username] + timeframe > Date.now() + config.limits.searchMaxDelay) {
+    return -1;
+  }
   userServiceWindow[username] += timeframe;
   return Math.round(userServiceWindow[username] - Date.now());
 }

@@ -15,9 +15,10 @@ module.exports = {
       'request_path', 'request_uri', '_id', 'data.request', 'data.url',
       'referrer'
     ],
-    termsMaxSize: 15,
+    termsMaxSize: 40,
     searchMaxRange: 60*60*24*7,
-    searchMaxFacets: 12,
-    searchMaxRPS: 1
+    searchMaxFacets: 20,
+    searchMaxRPS: 1,
+    searchMaxDelay: 300000
   }
  };
