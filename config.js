@@ -18,7 +18,7 @@ module.exports = {
     termsMaxSize: 40,
     searchMaxRange: 60*60*24*7,
     searchMaxFacets: 20,
-    searchMaxRPS: 1,
+    searchMaxRPS: 3,
     searchMaxDelay: 300000
   }
  };
