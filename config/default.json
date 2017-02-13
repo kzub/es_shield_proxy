@@ -20,5 +20,6 @@
     "searchMaxFacets": 20,
     "searchMaxRPS": 3,
     "searchMaxDelay": 300000
-  }
+  },
+  "userHeader": "x-forwarded-user"
  }

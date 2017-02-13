@@ -23,7 +23,7 @@ function run() {
 }
 
 function proxyRequest(request, response) {
-  var log = logger.auth(request.headers.ottuser);
+  var log = logger.auth(request.headers[config.userHeader]);
 
   var buf_size = 1024;
   var buf_used = 0;
@@ -75,7 +75,7 @@ function proxyRequest(request, response) {
 }
 
 function processUserRequest(request, response, buf, body, access, skipTimeThrottling) {
-  var log = logger.auth(request.headers.ottuser);
+  var log = logger.auth(request.headers[config.userHeader]);
 
   if (isFinite(access.delay) && access.delay > 0 && skipTimeThrottling === undefined) {
     setTimeout(function() {
@@ -161,7 +161,7 @@ function checkUserPermissions(request, buf) {
     return makePermisionResponse(true, 'no control needed');
   }
 
-  var username = request.headers.ottuser;
+  var username = request.headers[config.userHeader];
   if (!username) {
     return makePermisionResponse(false, 'no user auth');
   }
