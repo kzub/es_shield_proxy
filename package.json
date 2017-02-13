@@ -4,7 +4,8 @@
   "description": "Elasticsearch user permission control",
   "main": "app.js",
   "scripts": {
-    "test": ""
+    "test": "",
+    "start": "node app.js"
   },
   "repository": {
     "type": "git",
@@ -19,7 +20,8 @@
   "license": "MIT",
   "copyright": "OneTwoTrip",
   "dependencies": {
-    "express": "3.*"
+    "express": "3.*",
+    "config": "1.25.1"
   },
   "devDependencies": {
   },

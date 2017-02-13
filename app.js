@@ -2,7 +2,7 @@ var express = require('express');
 var http = require('http');
 var logger = require('./lib/logger')("ES_PROXY");
 var log = logger;
-var config = require('./config');
+var config = require('config');
 var userServiceWindow = {};
 
 const termsForbiddenFields = config.limits.termsForbiddenFields;
